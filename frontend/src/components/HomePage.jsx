@@ -1,21 +1,119 @@
-// src/components/HomePage.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MainNavLink from "./ui/MainNavLink";
 import UserNavLink from "./ui/UserNavLink";
 import TopicCard from "./ui/TopicCard";
 import FeaturedCard from "./ui/FeaturedCard";
-import Dashboard from "./Dashboard"; // Import the Dashboard component
+// Import supabase client from your centralized file
+import { supabase } from "../supabaseClient";
 
-function HomePage() {
+// Placeholder Dashboard component in case it's missing
+const Dashboard = () => (
+  <main className="flex-1 p-8 max-w-7xl mx-auto w-full">
+    <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+    <div className="bg-zinc-800 rounded-xl p-8 border border-zinc-700/50">
+      <p className="text-gray-300">Your personal dashboard content will appear here.</p>
+    </div>
+  </main>
+);
+
+function HomePage({ initialActiveTab = "home" }) {
   const [showModal, setShowModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("home");
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const handleplayground=()=>{
+    navigate("/codingplayground")
+  }
+  // Check authentication status on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      setLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Current session in HomePage:", session);
+        
+        if (!session) {
+          // Redirect to login if no session exists
+          console.log("No active session found, redirecting to login");
+          localStorage.removeItem("isLoggedIn");
+          navigate("/login");
+          return;
+        }
+        
+        // Make sure local storage is set correctly
+        localStorage.setItem("isLoggedIn", "true");
+        
+        // Set user data if session exists
+        setUser(session.user);
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        localStorage.removeItem("isLoggedIn");
+        navigate("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Set up auth listener
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed in HomePage:", event);
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem("isLoggedIn");
+        navigate("/login");
+      }
+    });
+    
+    return () => {
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, [navigate]);
   
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem("isLoggedIn");
+      // Navigation will be handled by the auth listener
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
   };
+  
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-t-violet-500 border-r-violet-500 border-b-violet-500 border-l-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // If authentication check is complete but no user, this is a fallback
+  // (should not normally reach here due to the redirect in useEffect)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-900">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Authentication Required</h1>
+          <p className="text-gray-300 mb-6">Please log in to access this page.</p>
+          <button 
+            onClick={() => navigate("/login")}
+            className="bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-6 rounded-md"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex flex-col bg-zinc-900 text-gray-200">
@@ -29,7 +127,8 @@ function HomePage() {
           
           <div className="hidden md:flex items-center gap-6">
             <MainNavLink active={activeTab === "home"} onClick={() => setActiveTab("home")}>Home</MainNavLink>
-            <MainNavLink active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>Dashboard</MainNavLink>
+            {/* <MainNavLink active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>Dashboard</MainNavLink> */}
+            <button onClick={() => navigate("/dashboard")}>Dashboard</button>
             <MainNavLink active={activeTab === "practice"} onClick={() => setActiveTab("practice")}>Practice</MainNavLink>
             <MainNavLink active={activeTab === "contests"} onClick={() => setActiveTab("contests")}>Contests</MainNavLink>
             <MainNavLink active={activeTab === "about"} onClick={() => setActiveTab("about")}>About</MainNavLink>
@@ -55,7 +154,7 @@ function HomePage() {
             onClick={() => setShowModal(true)}
             className="flex items-center justify-center h-9 w-9 rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 text-white font-semibold text-sm shadow-lg shadow-purple-500/20"
           >
-            CF
+            {user?.email?.charAt(0).toUpperCase() || "U"}
           </button>
         </div>
       </nav>
@@ -68,7 +167,7 @@ function HomePage() {
               Master DSA Like a Superhuman
             </h1>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-              Elevate your algorithmic thinking and problem-solving skills with our interactive learning platform designed for high performance.
+              Welcome back, {user.email}! Elevate your algorithmic thinking and problem-solving skills with our interactive learning platform.
             </p>
           </section>
           
@@ -110,11 +209,15 @@ function HomePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-6">Core DSA Topics</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+              <button onClick={()=>{
+                navigate("/codingplayground")
+              }}>
               <TopicCard 
                 icon="📊" 
                 title="Arrays & Strings" 
                 description="Master fundamental data structures with hands-on examples" 
               />
+              </button>
               <TopicCard 
                 icon="🔄" 
                 title="Linked Lists" 
@@ -155,7 +258,7 @@ function HomePage() {
         </main>
       )}
       
-      {/* Content for Dashboard tab - REPLACE WITH CUSTOM DASHBOARD COMPONENT */}
+      {/* Content for Dashboard tab */}
       {activeTab === "dashboard" && <Dashboard />}
       
       {/* Content for About tab */}
@@ -224,7 +327,7 @@ function HomePage() {
                   <input 
                     type="text" 
                     className="w-full bg-zinc-900/50 border border-zinc-700 rounded-md p-3 text-white focus:outline-none focus:border-violet-500" 
-                    defaultValue="CodeForge User"
+                    defaultValue={user.email.split('@')[0]}
                   />
                 </div>
                 
@@ -233,7 +336,8 @@ function HomePage() {
                   <input 
                     type="email" 
                     className="w-full bg-zinc-900/50 border border-zinc-700 rounded-md p-3 text-white focus:outline-none focus:border-violet-500" 
-                    defaultValue="user@example.com"
+                    defaultValue={user.email}
+                    readOnly
                   />
                 </div>
               </div>
@@ -300,7 +404,7 @@ function HomePage() {
         </div>
       </footer>
       
-      {/* Login Modal */}
+      {/* User Profile Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-zinc-800 rounded-xl p-8 w-full max-w-md shadow-2xl relative">
@@ -312,53 +416,41 @@ function HomePage() {
             </button>
             
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-violet-500 mb-2">Welcome Back</h2>
-              <p className="text-gray-400">Login to continue your learning journey</p>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
+                {user.email.charAt(0).toUpperCase()}
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-1">{user.email.split('@')[0]}</h2>
+              <p className="text-gray-400">{user.email}</p>
             </div>
             
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              setShowModal(false);
-              alert("Login successful! Redirecting to dashboard...");
-            }}>
-              <div className="mb-6">
-                <label htmlFor="modal-email" className="block mb-2 text-sm text-gray-400">
-                  Email Address
-                </label>
-                <input 
-                  type="email" 
-                  id="modal-email" 
-                  className="w-full p-3 rounded-md border border-zinc-700 bg-zinc-900/50 text-white focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition"
-                  placeholder="your@email.com" 
-                  required 
-                />
-              </div>
-              
-              <div className="mb-6">
-                <label htmlFor="modal-password" className="block mb-2 text-sm text-gray-400">
-                  Password
-                </label>
-                <input 
-                  type="password" 
-                  id="modal-password" 
-                  className="w-full p-3 rounded-md border border-zinc-700 bg-zinc-900/50 text-white focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition"
-                  placeholder="Enter your password" 
-                  required 
-                />
-              </div>
-              
+            <div className="space-y-4">
               <button 
-                type="submit" 
-                className="w-full py-3 rounded-md bg-violet-600 hover:bg-violet-700 text-white font-semibold transition shadow-lg hover:shadow-violet-500/25"
+                onClick={() => {
+                  setShowModal(false);
+                  setActiveTab("profile");
+                }}
+                className="w-full py-2 rounded-md bg-zinc-700 hover:bg-zinc-600 text-white text-left px-4 transition"
               >
-                Login
+                View Profile
               </button>
               
-              <div className="flex justify-between mt-4 text-sm">
-                <a href="#" className="text-violet-400 hover:underline">Forgot password?</a>
-                <a href="#" className="text-violet-400 hover:underline">Create account</a>
-              </div>
-            </form>
+              <button 
+                onClick={() => {
+                  setShowModal(false);
+                  setActiveTab("settings");
+                }}
+                className="w-full py-2 rounded-md bg-zinc-700 hover:bg-zinc-600 text-white text-left px-4 transition"
+              >
+                Settings
+              </button>
+              
+              <button 
+                onClick={handleLogout}
+                className="w-full py-2 rounded-md bg-red-600/30 hover:bg-red-600/50 text-red-300 text-left px-4 transition"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       )}

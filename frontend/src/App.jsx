@@ -4,99 +4,174 @@ import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
 import HomePage from "./components/HomePage";
 import PracticePage from "./components/PracticePage";
-import Dashboard from "./components/Dashboard";
+import Dashboard from "./components/DashBoard";
 import SolutionPage from "./components/SolutionPage";
+import { supabase } from "./supabaseClient";
+import CodingChallenge from "./components/CodingChallenge";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
+  const [loading, setLoading] = useState(true);
+  const [question,setquestion]=useState(null)
+  const [userid,setuserid]=useState(null)
   useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-    setIsAuthenticated(loggedIn);
+    // Check local storage first for quick initial render
+    const checkAuth = async () => {
+      setLoading(true);
+      
+      // First quickly check localStorage
+      const loggedInFromStorage = localStorage.getItem("isLoggedIn") === "true";
+      setIsAuthenticated(loggedInFromStorage);
+      
+      // Then verify with Supabase (more secure)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        const isLoggedIn = !!session;
+        
+        // Update localStorage to match actual auth state
+        if (isLoggedIn) {
+          localStorage.setItem("isLoggedIn", "true");
+        } else {
+          localStorage.removeItem("isLoggedIn");
+        }
+        
+        setIsAuthenticated(isLoggedIn);
+      } catch (error) {
+        console.error("Error checking auth:", error);
+        localStorage.removeItem("isLoggedIn");
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Listen for auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN") {
+        localStorage.setItem("isLoggedIn", "true");
+        setIsAuthenticated(true);
+      } else if (event === "SIGNED_OUT") {
+        localStorage.removeItem("isLoggedIn");
+        setIsAuthenticated(false);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
   }, []);
 
+  // Protected route component
   const ProtectedRoute = ({ children }) => {
+    if (loading) {
+      return <div>Loading...</div>;
+    }
+    
     if (!isAuthenticated) {
       return <Navigate to="/login" />;
     }
+    
     return children;
+  };
+
+  // Auth route - redirects to home if already logged in
+  const AuthRoute = ({ children }) => {
+    if (loading) {
+      return <div>Loading...</div>;
+    }
+    
+    if (isAuthenticated) {
+      return <Navigate to="/home" />; // Changed from "/dashboard" to "/home"
+    }
+    
+    return children;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem("isLoggedIn");
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
 
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
+        {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route
-          path="/login"
-          element={isAuthenticated ? <Navigate to="/home" /> : <LoginPage />}
+        <Route 
+          path="/login" 
+          element={
+            <AuthRoute>
+              <LoginPage />
+            </AuthRoute>
+          } 
         />
+        
+        {/* Protected routes */}
+        <Route 
+          path="/home" 
+          element={
+            <ProtectedRoute>
+              <HomePage onLogout={handleLogout} />
+            </ProtectedRoute>
+          } 
+        />
+        <Route
+          path="/codingplayground"
+          element={
+            <ProtectedRoute>
+              <CodingChallenge question={question} setquestion={setquestion} user_id={userid} setuserid={setuserid}></CodingChallenge>
 
-        {/* Protected Routes */}
-        <Route
-          path="/home"
+            </ProtectedRoute>
+
+          }
+          />
+        <Route 
+          path="/practice" 
           element={
             <ProtectedRoute>
-              <HomePage initialActiveTab="home" />
+              <PracticePage />
             </ProtectedRoute>
-          }
+          } 
         />
-        <Route
-          path="/dashboard"
+        {/* <Route 
+          path="/dashboard" 
           element={
             <ProtectedRoute>
-              <HomePage initialActiveTab="dashboard" />
+              <Dashboard onLogout={handleLogout} />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/practice"
-          element={
-            <ProtectedRoute>
-              <HomePage initialActiveTab="practice" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/contests"
-          element={
-            <ProtectedRoute>
-              <HomePage initialActiveTab="contests" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/about"
-          element={
-            <ProtectedRoute>
-              <HomePage initialActiveTab="about" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <HomePage initialActiveTab="settings" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <HomePage initialActiveTab="profile" />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/solutions"
+          } 
+        /> */}
+        <Route 
+  path="/dashboard" 
+  element={
+    <ProtectedRoute>
+      <Dashboard onLogout={handleLogout} />
+    </ProtectedRoute>
+  } 
+/>
+
+        <Route 
+          path="/solution/:id" 
           element={
             <ProtectedRoute>
               <SolutionPage />
             </ProtectedRoute>
-          }
+          } 
         />
+        
+        {/* Redirect unknown routes to home */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );
