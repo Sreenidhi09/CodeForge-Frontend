@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg text-textColor min-h-screen overflow-x-hidden;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply bg-accent text-bg px-5 py-2 rounded font-semibold transition-all duration-200 text-sm cursor-pointer border-none outline-none hover:bg-secondary disabled:bg-muted disabled:cursor-not-allowed;
+  }
+  
+  .btn-cta {
+    @apply bg-gradient-to-r from-accent to-secondary text-bg px-8 py-3 rounded font-semibold transition-all duration-300 inline-block text-base cursor-pointer border-none hover:opacity-90 hover:-translate-y-0.5;
+  }
+  
+  .container {
+    @apply max-w-screen-xl mx-auto px-8;
+  }
+  
+  .form-label {
+    @apply block mb-2 text-sm text-muted;
+  }
+  
+  .form-input {
+    @apply w-full py-3 px-3 bg-bg/60 border border-muted/20 rounded text-textColor text-base transition-colors duration-200 focus:outline-none focus:border-accent;
+  }
+  
+  .form-error {
+    @apply text-error text-sm mt-2 hidden;
+  }
+  
+  .form-error.show {
+    @apply block;
+  }
+  
+  .auth-link {
+    @apply text-accent no-underline text-sm hover:underline;
+  }
+}
