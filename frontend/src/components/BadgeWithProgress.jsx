@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 const BadgeWithProgress = ({ xp }) => {
   let badge = {
@@ -36,16 +35,14 @@ const BadgeWithProgress = ({ xp }) => {
         <span className="font-semibold">Badge:</span> {badge.label} ({xp} XP)
       </div>
       <div>
-        <div className="text-sm text-gray-600 mb-1">Progress to next badge</div>
-        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-          <motion.div
+        <div className="text-sm text-gray-400 mb-1">Progress to next badge</div>
+        <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+          <div 
             className="bg-green-500 h-full rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.6 }}
+            style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="text-sm mt-1 text-gray-700 font-medium">{progress}% Complete</div>
+        <div className="text-sm mt-1 text-gray-300 font-medium">{progress}% Complete</div>
       </div>
     </div>
   );

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
-import { supabase } from '../supabaseClient';
+import { useCodeContext } from '../context/CodeContext';
 
-const CodingChallenge = ({ question, setquestion, user_id, setuserid }) => {
+const CodingChallenge = () => {
+  // Get values from context instead of props
+  const { question, setQuestion, userId, loading: loadingContext, generateNewQuestion } = useCodeContext();
+  
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [attempts, setAttempts] = useState(0);
@@ -13,7 +16,6 @@ const CodingChallenge = ({ question, setquestion, user_id, setuserid }) => {
   const [submitted, setSubmitted] = useState(false);
   const [passedTests, setPassedTests] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
   const [language, setLanguage] = useState('javascript');
   const [editorLanguage, setEditorLanguage] = useState('javascript');
   const [analysis, setAnalysis] = useState(null);
@@ -27,31 +29,12 @@ const CodingChallenge = ({ question, setquestion, user_id, setuserid }) => {
     { value: 'cpp', label: 'C++' },
   ];
 
-  // Initial data load
+  // Set start time when question loads
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: user } = await supabase.auth.getUser();
-        if (user && user.user && user.user.id) {
-          const userId = user.user.id;
-          setuserid(userId);
-
-          const res = await axios.post('https://code-forge.onrender.com/generate-question', {
-            user_id: userId,
-          });
-
-          setquestion(res.data);
-          setStartTime(Date.now());
-        }
-      } catch (error) {
-        console.error('Error loading user/question:', error);
-      } finally {
-        setLoadingData(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+    if (question && !startTime) {
+      setStartTime(Date.now());
+    }
+  }, [question, startTime]);
 
   // Update editor language on change
   useEffect(() => {
@@ -142,37 +125,28 @@ const CodingChallenge = ({ question, setquestion, user_id, setuserid }) => {
   };
 
   const handleNext = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.post('https://code-forge.onrender.com/generate-question', {
-        user_id,
-      });
-
-      setCode('');
-      setOutput('');
-      setAttempts(0);
-      setTimeTaken(0);
-      setShowHint(false);
-      setSubmitted(false);
-      setPassedTests(0);
-      setAnalysis(null);
-      setWeaknesses([]);
-      setLanguage('javascript');
-      setEditorLanguage('javascript');
-      setStartTime(Date.now());
-      setquestion(res.data);
-    } catch (err) {
-      console.error('Error loading next question:', err);
-    } finally {
-      setLoading(false);
-    }
+    setCode('');
+    setOutput('');
+    setAttempts(0);
+    setTimeTaken(0);
+    setShowHint(false);
+    setSubmitted(false);
+    setPassedTests(0);
+    setAnalysis(null);
+    setWeaknesses([]);
+    setLanguage('javascript');
+    setEditorLanguage('javascript');
+    setStartTime(Date.now());
+    
+    // Use the context function to generate a new question
+    await generateNewQuestion();
   };
 
   const toggleHint = () => {
     setShowHint(!showHint);
   };
 
-  if (loadingData || !question) {
+  if (loadingContext || !question) {
     return <div className="text-white p-10 text-lg">Loading question...</div>;
   }
 
